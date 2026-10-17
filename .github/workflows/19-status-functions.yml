@@ -8,9 +8,7 @@ jobs:
     steps:
       - run: echo "Building..."
 
-      - name: Fail on purpose
-        run: exit 1
-
+      
   job2:
     needs: job1
     # No `if:` at all, so the implicit success() applies -> SKIPPED.
