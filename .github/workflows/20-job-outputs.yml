@@ -1,4 +1,3 @@
-
 name: 20 - Job Outputs
 
 on: workflow_dispatch
@@ -7,59 +6,60 @@ jobs:
   produce:
     runs-on: ubuntu-latest
 
-    # Expose step outputs as job outputs
+    # STEP 2 of the chain: promote step outputs to JOB outputs.
     outputs:
-      version: ${{ steps.meta.outputs.version }}
+      version:   ${{ steps.meta.outputs.version }}
       timestamp: ${{ steps.meta.outputs.timestamp }}
-      name: ${{ steps.meta.outputs.name }}
-      age: ${{ steps.data.outputs.age }}
+      changelog: ${{ steps.notes.outputs.changelog }}
 
     steps:
-      # STEP 1: Generate version, timestamp, and name
+      # STEP 1 of the chain: write to the special $GITHUB_OUTPUT file.
       - name: Compute some metadata
-        id: meta
+        id: meta                       # <- the id is mandatory
         run: |
           VERSION="1.4.${{ github.run_number }}"
-          NAME="Dinakar Prasad"
-
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"            >> "$GITHUB_OUTPUT"
           echo "timestamp=$(date -u +%FT%TZ)" >> "$GITHUB_OUTPUT"
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-
           echo "Computed version $VERSION"
-          echo "Computed timestamp $(date -u +%FT%TZ)"
-          echo "Computed name $NAME"
 
-      # STEP 2: Generate age
-      - name: Compute some metadata2
-        id: data
-        run: |
-          AGE="27"
-          echo "age=$AGE" >> "$GITHUB_OUTPUT"
-
-      # STEP 3: Read outputs from another step in the same job
       - name: Accessing from another step
         run: |
-          echo "Version: ${{ steps.meta.outputs.version }}"
-          echo "Timestamp: ${{ steps.meta.outputs.timestamp }}"
-          echo "Name: ${{ steps.meta.outputs.name }}"
-          echo "Age: ${{ steps.data.outputs.age }}"
+          echo "${{ steps.meta.outputs.version }}"
 
+      # MULTI-LINE values need a random delimiter. A bare newline would be
+      # read as the start of the next key and silently truncate your value.
+      - name: A multi-line output
+        id: notes
+        run: |
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "- Added job outputs"
+            echo "- Fixed the build"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Inside the SAME job you read step outputs directly — no `needs`.
+      - name: Read it back in the same job
+        # YAML gotcha: an unquoted value cannot contain ": " — YAML reads it
+        # as a new key and rejects the file. Use a block scalar (|) like this,
+        # or quote the whole string.
+        run: |
+          echo "Same job sees: ${{ steps.meta.outputs.version }}"
+
+  # STEP 3 of the chain: a different machine, reading the value over `needs`.
   consume:
-    # Wait for the produce job to finish successfully
-    needs: produce
+    needs: produce                     # you cannot use `needs.produce` without this
     runs-on: ubuntu-latest
-
     steps:
-      # STEP 4: Read outputs from another job
       - name: Read the upstream job's outputs
         run: |
-          echo "Version: ${{ needs.produce.outputs.version }}"
-          echo "Built at: ${{ needs.produce.outputs.timestamp }}"
-          echo "Name: ${{ needs.produce.outputs.name }}"
-          echo "Age: ${{ needs.produce.outputs.age }}"
+          echo "Version   : ${{ needs.produce.outputs.version }}"
+          echo "Built at  : ${{ needs.produce.outputs.timestamp }}"
+          echo "Changelog :"
+          echo "${{ needs.produce.outputs.changelog }}"
 
-      # STEP 5: Run a step only when the version is not empty
+      # A very common real-world pattern: decide something in job A, then
+      # gate job B on it. (Remember: the value is a STRING.)
       - name: Gate on an output value
         if: needs.produce.outputs.version != ''
         run: echo "We have a version, so a deploy could proceed."
