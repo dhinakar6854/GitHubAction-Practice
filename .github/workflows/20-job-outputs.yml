@@ -1,0 +1,30 @@
+name: 20 - Job Outputs
+
+on: workflow_dispatch
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+
+    steps:
+      # STEP 1: Generate metadata and save step outputs
+      - name: Compute some metadata
+        id: meta
+        run: |
+          VERSION="1.4.${{ github.run_number }}"
+          NAME="Dinakar Prasad"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$(date -u +%FT%TZ)" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+          echo "Computed version $VERSION"
+          echo "Computed timestamp $(date -u +%FT%TZ)"
+          echo "Computed name $NAME"
+
+      # STEP 2: Read outputs from the previous step
+      - name: Accessing from another step
+        run: |
+          echo "Version: ${{ steps.meta.outputs.version }}"
+          echo "Timestamp: ${{ steps.meta.outputs.timestamp }}"
+          echo "Name: ${{ steps.meta.outputs.name }}"
