@@ -1,3 +1,4 @@
+
 name: 20 - Job Outputs
 
 on: workflow_dispatch
@@ -6,8 +7,15 @@ jobs:
   produce:
     runs-on: ubuntu-latest
 
+    # Expose step outputs as job outputs
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      timestamp: ${{ steps.meta.outputs.timestamp }}
+      name: ${{ steps.meta.outputs.name }}
+      age: ${{ steps.data.outputs.age }}
+
     steps:
-      # STEP 1: Generate metadata and save step outputs
+      # STEP 1: Generate version, timestamp, and name
       - name: Compute some metadata
         id: meta
         run: |
@@ -22,9 +30,36 @@ jobs:
           echo "Computed timestamp $(date -u +%FT%TZ)"
           echo "Computed name $NAME"
 
-      # STEP 2: Read outputs from the previous step
+      # STEP 2: Generate age
+      - name: Compute some metadata2
+        id: data
+        run: |
+          AGE="27"
+          echo "age=$AGE" >> "$GITHUB_OUTPUT"
+
+      # STEP 3: Read outputs from another step in the same job
       - name: Accessing from another step
         run: |
           echo "Version: ${{ steps.meta.outputs.version }}"
           echo "Timestamp: ${{ steps.meta.outputs.timestamp }}"
           echo "Name: ${{ steps.meta.outputs.name }}"
+          echo "Age: ${{ steps.data.outputs.age }}"
+
+  consume:
+    # Wait for the produce job to finish successfully
+    needs: produce
+    runs-on: ubuntu-latest
+
+    steps:
+      # STEP 4: Read outputs from another job
+      - name: Read the upstream job's outputs
+        run: |
+          echo "Version: ${{ needs.produce.outputs.version }}"
+          echo "Built at: ${{ needs.produce.outputs.timestamp }}"
+          echo "Name: ${{ needs.produce.outputs.name }}"
+          echo "Age: ${{ needs.produce.outputs.age }}"
+
+      # STEP 5: Run a step only when the version is not empty
+      - name: Gate on an output value
+        if: needs.produce.outputs.version != ''
+        run: echo "We have a version, so a deploy could proceed."
