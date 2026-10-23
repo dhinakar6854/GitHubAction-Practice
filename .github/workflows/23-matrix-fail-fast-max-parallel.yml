@@ -1,0 +1,39 @@
+name: 23 - Matrix fail-fast & max-parallel
+
+on: workflow_dispatch
+
+jobs:
+  controlled-matrix:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Try BOTH values during the demo — the difference is dramatic.
+      fail-fast: false
+
+      # Only 2 of the 4 jobs run at a time. Watch the graph: two start,
+      # two sit in "Queued" until a slot frees up.
+      # max-parallel: 2
+
+      matrix:
+        node: [18, 20, 22, 24]
+
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Do some work
+        run: |
+          echo "Testing on Node ${{ matrix.node }}"
+          node --version
+          sleep 15
+
+      - name: This one row fails on purpose
+        if: matrix.node == 18
+        run: |
+          echo "Simulating a bug that only appears on our oldest supported Node."
+          exit 1
+
+      - name: Finish
+        run: echo "Node ${{ matrix.node }} finished successfully."
