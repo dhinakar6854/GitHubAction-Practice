@@ -14,14 +14,12 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         node: [20, 22, 24]
 
-        # Exclude unwanted combinations
         exclude:
           - os: macos-latest
             node: 20
           - os: macos-latest
             node: 22
 
-        # Add labels or new combinations
         include:
           - os: ubuntu-latest
             node: 24
@@ -36,13 +34,20 @@ jobs:
         working-directory: sample-app
 
     steps:
-      # Checkout repository
+      - name: Show workspace
+        run: |
+          echo "Workspace: ${{ github.workspace }}"
+          echo "Runner OS: ${{ runner.os }}"
+
       - name: Checkout repository
         uses: actions/checkout@v5
-        with:
-          path: .
 
-      # Set up Node.js
+      - name: Verify project files
+        working-directory: .
+        run: |
+          echo "Repository checkout completed."
+          echo "Inspect the workspace for sample-app."
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -50,16 +55,11 @@ jobs:
           cache: npm
           cache-dependency-path: sample-app/package-lock.json
 
-      # Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # Display matrix combination
       - name: Report this combination
         run: echo "os=${{ matrix.os }} node=${{ matrix.node }} label=${{ matrix.label }}"
 
-      # Run tests
       - name: Run tests
         run: npm test
-
-        
