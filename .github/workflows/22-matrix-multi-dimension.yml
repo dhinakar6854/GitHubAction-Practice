@@ -5,30 +5,28 @@ on: workflow_dispatch
 jobs:
   test:
     name: ${{ matrix.os }} · Node ${{ matrix.node }} ${{ matrix.label }}
-    runs-on: ${{ matrix.os }}          # the runner itself comes from the matrix
+    runs-on: ${{ matrix.os }}
 
     strategy:
-      fail-fast: false                 # see file 23 — keep all rows running
+      fail-fast: false
 
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         node: [20, 22, 24]
 
-        # Drop combinations you do not care about.
+        # Exclude unwanted combinations
         exclude:
-          - os: macos-latest           # macOS is expensive: only keep one row
+          - os: macos-latest
             node: 20
           - os: macos-latest
             node: 22
 
+        # Add labels or new combinations
         include:
-          # (a) MATCHES an existing combo -> just adds `label` to that job.
           - os: ubuntu-latest
             node: 24
             label: '(primary)'
 
-          # (b) MATCHES NOTHING (18 is not in the `node` list) -> appends a
-          #     brand-new job, outside the grid, for a version we still support.
           - os: ubuntu-latest
             node: 18
             label: '(legacy support)'
@@ -38,20 +36,30 @@ jobs:
         working-directory: sample-app
 
     steps:
-      - uses: actions/checkout@v5
+      # Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          path: .
 
-      - uses: actions/setup-node@v6
+      # Set up Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
-          cache: 'npm'
-          cache-dependency-path: 'sample-app/package-lock.json'
+          cache: npm
+          cache-dependency-path: sample-app/package-lock.json
 
-      - run: npm ci
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
 
+      # Display matrix combination
       - name: Report this combination
-        # Windows runners default to PowerShell, Linux/macOS to bash. Keeping
-        # commands to plain `echo` and npm scripts is what makes one matrix
-        # row work on all three operating systems.
         run: echo "os=${{ matrix.os }} node=${{ matrix.node }} label=${{ matrix.label }}"
 
-      - run: npm test
+      # Run tests
+      - name: Run tests
+        run: npm test
+
+        
