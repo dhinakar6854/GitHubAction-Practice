@@ -29,24 +29,16 @@ jobs:
             node: 18
             label: '(legacy support)'
 
-    defaults:
-      run:
-        working-directory: sample-app
-
     steps:
-      - name: Show workspace
-        run: |
-          echo "Workspace: ${{ github.workspace }}"
-          echo "Runner OS: ${{ runner.os }}"
-
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Verify project files
-        working-directory: .
+      - name: Show workspace and files
         run: |
-          echo "Repository checkout completed."
-          echo "Inspect the workspace for sample-app."
+          echo "Workspace: ${{ github.workspace }}"
+          echo "Runner OS: ${{ runner.os }}"
+          ls
+        shell: bash
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -56,10 +48,14 @@ jobs:
           cache-dependency-path: sample-app/package-lock.json
 
       - name: Install dependencies
+        working-directory: sample-app
         run: npm ci
 
       - name: Report this combination
+        working-directory: sample-app
         run: echo "os=${{ matrix.os }} node=${{ matrix.node }} label=${{ matrix.label }}"
 
       - name: Run tests
+        working-directory: sample-app
         run: npm test
+```
