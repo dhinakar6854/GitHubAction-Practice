@@ -1,60 +1,39 @@
-name: 22 - Matrix Include / Exclude
+name: 23 - Matrix fail-fast & max-parallel
 
 on: workflow_dispatch
 
 jobs:
-  test:
-    name: ${{ matrix.os }} · Node ${{ matrix.node }} ${{ matrix.label }}
-    runs-on: ${{ matrix.os }}
+  controlled-matrix:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
 
     strategy:
-      fail-fast: false
+      # Try BOTH values during the demo — the difference is dramatic.
+      fail-fast: true
+
+      # Only 2 of the 4 jobs run at a time. Watch the graph: two start,
+      # two sit in "Queued" until a slot frees up.
+      # max-parallel: 2
 
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        node: [20, 22, 24]
-
-        exclude:
-          - os: macos-latest
-            node: 20
-          - os: macos-latest
-            node: 22
-
-        include:
-          - os: ubuntu-latest
-            node: 24
-            label: '(primary)'
-
-          - os: ubuntu-latest
-            node: 18
-            label: '(legacy support)'
+        node: [18, 20, 22, 24]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Show workspace and files
-        run: |
-          echo "Workspace: ${{ github.workspace }}"
-          echo "Runner OS: ${{ runner.os }}"
-          ls
-        shell: bash
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-          cache-dependency-path: sample-app/package-lock.json
 
-      - name: Install dependencies
-        working-directory: sample-app
-        run: npm ci
+      - name: Do some work
+        run: |
+          echo "Testing on Node ${{ matrix.node }}"
+          node --version
+          sleep 15
 
-      - name: Report this combination
-        working-directory: sample-app
-        run: echo "os=${{ matrix.os }} node=${{ matrix.node }} label=${{ matrix.label }}"
+      - name: This one row fails on purpose
+        if: matrix.node == 18
+        run: |
+          echo "Simulating a bug that only appears on our oldest supported Node."
+          exit 1
 
-      - name: Run tests
-        working-directory: sample-app
-        run: npm test
+      - name: Finish
+        run: echo "Node ${{ matrix.node }} finished successfully."
