@@ -1,0 +1,72 @@
+name: 24 - Caching
+
+on: workflow_dispatch
+
+jobs:
+  built-in-cache:
+    name: A — built-in caching (the easy way)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sample-app
+    steps:
+      - uses: actions/checkout@v5
+
+      # setup-node has caching BUILT IN. One line, no key management — it
+      # hashes the lockfile for you. This covers 90% of Node projects and is
+      # what you should reach for first.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'                                        # <- that is it
+          cache-dependency-path: 'sample-app/package-lock.json'
+
+      - run: npm ci
+
+  explicit-cache:
+    name: B — actions/cache (full control)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache a custom directory
+        id: toolcache                        # id lets us read `cache-hit` later
+        uses: actions/cache@v6           # v4 still works but is a Node 20 build,
+                                         # so every run prints the "Node.js 20 is
+                                         # deprecated" warning. v5+ is Node 24.
+        with:
+          # WHAT to cache — one path or a multi-line list.
+          path: ~/.my-tool-cache
+
+          # THE KEY. hashFiles() returns a SHA of the matched files, so the
+          # key changes the instant a dependency changes. That is what makes
+          # the cache self-invalidating.
+          key: ${{ runner.os }}-tools-${{ hashFiles('sample-app/package-lock.json') }}
+
+          # Fallbacks, tried in order, ONLY when `key` misses.
+          # A partial hit restores an older cache that we then top up.
+          restore-keys: |
+            ${{ runner.os }}-tools-
+            
+      # https://emn178.github.io/online-tools/sha256.html
+      # `cache-hit` is 'true' ONLY on an exact `key` match. A restore-keys
+      # hit leaves it false — a subtlety that catches people out.
+      - name: Populate the cache (slow path)
+        if: steps.toolcache.outputs.cache-hit != 'true'
+        run: |
+          echo "❌ Cache MISS — doing the expensive work."
+          mkdir -p ~/.my-tool-cache
+          sleep 20                                   # pretend this is a big download
+          echo "built at $(date -u)" > ~/.my-tool-cache/tool.txt
+
+      - name: Use the cache (fast path)
+        if: steps.toolcache.outputs.cache-hit == 'true'
+        run: |
+          echo "✅ Cache HIT — skipped the expensive work entirely."
+          cat ~/.my-tool-cache/tool.txt
+
+      # The cache is SAVED automatically when the job ends successfully.
+      # There is no "save" step to write. If the job fails, nothing is saved.
+      - name: Where to inspect caches
+        run: |
+          echo "Browse and delete caches under: repo -> Actions -> Caches"
