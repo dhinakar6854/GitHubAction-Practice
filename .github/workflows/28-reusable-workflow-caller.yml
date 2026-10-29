@@ -1,0 +1,48 @@
+name: 28 - Reusable Workflow Caller
+
+on: workflow_dispatch
+
+jobs:
+  # ── 1. Simplest possible call: take every default ────────────────────────
+  test-defaults:
+    uses: ./.github/workflows/27-reusable-workflow-callee.yml
+
+  # ── 2. Pass explicit inputs ──────────────────────────────────────────────
+  test-node-22:
+    uses: ./.github/workflows/27-reusable-workflow-callee.yml
+    with:
+      node-version: '22'
+      run-lint: false                 # boolean input -> no quotes
+
+  # ── 3. Pass a secret ─────────────────────────────────────────────────────
+  test-with-secret:
+    uses: ./.github/workflows/27-reusable-workflow-callee.yml
+    with:
+      node-version: '20'
+    secrets:
+      # Left side = the name the CALLEE declared. Right side = your repo secret.
+      API_KEY: ${{ secrets.MY_API_KEY }}
+
+      # Shortcut: `secrets: inherit` hands over ALL of the caller's secrets.
+      # Convenient, and exactly the kind of over-sharing we argue against later.
+      # Prefer naming them one by one.
+
+  # ── 4. A matrix OF reusable-workflow calls ───────────────────────────────
+  # `strategy` is one of the few keys allowed next to `uses`, so you can fan
+  # a reusable workflow across versions. This is where reuse really pays off.
+  test-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+    uses: ./.github/workflows/27-reusable-workflow-callee.yml
+    with:
+      node-version: ${{ matrix.node }}
+
+  # ── 5. Read the callee's OUTPUT ──────────────────────────────────────────
+  report:
+    needs: test-defaults
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read what the reusable workflow returned
+        run: echo "The reusable workflow tested Node ${{ needs.test-defaults.outputs.tested-version }}"
